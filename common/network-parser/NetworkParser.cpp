@@ -63,6 +63,12 @@ std::vector<TopologyBuildingBlock> NetworkParser::get_topologies_per_dim() const
     return topology_per_dim;
 }
 
+std::vector<std::string> NetworkParser::get_inputfiles_per_dim() const noexcept {
+    assert(dims_count > 0);
+    
+    return inputfile_per_dim;
+}
+
 void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) noexcept {
     // parse topology_per_dim
     const auto topology_names = parse_vector<std::string>(network_config["topology"]);
@@ -78,6 +84,14 @@ void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) n
     npus_count_per_dim = parse_vector<int>(network_config["npus_count"]);
     bandwidth_per_dim = parse_vector<Bandwidth>(network_config["bandwidth"]);
     latency_per_dim = parse_vector<Latency>(network_config["latency"]);
+
+    // parse optional inputfile parameter (for ExpanderGraph topologies)
+    if (network_config["inputfile"]) {
+        inputfile_per_dim = parse_vector<std::string>(network_config["inputfile"]);
+    } else {
+        // Fill with empty strings if not provided
+        inputfile_per_dim = std::vector<std::string>(dims_count, "");
+    }
 
     // check the validity of the parsed network config
     check_validity();
@@ -96,6 +110,10 @@ TopologyBuildingBlock NetworkParser::parse_topology_name(const std::string& topo
 
     if (topology_name == "Switch") {
         return TopologyBuildingBlock::Switch;
+    }
+
+    if (topology_name == "ExpanderGraph") {
+        return TopologyBuildingBlock::ExpanderGraph;
     }
 
     // shouldn't reach here

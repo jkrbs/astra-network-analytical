@@ -51,7 +51,7 @@ class Topology {
      *
      * @param chunk chunk to be transmitted
      */
-    void send(std::unique_ptr<Chunk> chunk) noexcept;
+    virtual void send(std::unique_ptr<Chunk> chunk) noexcept;
 
     /**
      * Get the number of NPUs in the topology.

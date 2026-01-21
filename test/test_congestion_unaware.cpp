@@ -6,6 +6,7 @@ LICENSE file in the root directory of this source tree.
 #include "common/NetworkParser.h"
 #include "common/Type.h"
 #include "congestion_unaware/Helper.h"
+#include "congestion_unaware/ExpanderGraph.h"
 #include <gtest/gtest.h>
 
 using namespace NetworkAnalytical;
@@ -67,4 +68,47 @@ TEST_F(TestNetworkAnalyticalCongestionUnaware, Ring_FullyConnected_Switch) {
     // run on dim 3
     const auto comm_delay_dim3 = topology->send(26, 42, chunk_size);
     EXPECT_EQ(comm_delay_dim3, 23'531);
+}
+
+TEST_F(TestNetworkAnalyticalCongestionUnaware, ExpanderGraph) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/ExpanderGraph.yml");
+    const auto topology = construct_topology(network_parser);
+    
+    // assert topology type
+    auto graph = std::dynamic_pointer_cast<ExpanderGraph>(topology);
+    ASSERT_NE(graph, nullptr);
+
+    // validate that every node has degree 8
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        const auto& neighbors = graph->adjacency_list.at(i);
+        EXPECT_EQ(neighbors.size(), 8);
+    }
+
+    unsigned int total_distance = 0;
+    unsigned int count = 0;
+
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]/2; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            // all distances should be <= N/2
+            const auto distance = graph->get_distance(i, j, std::set<DeviceId>(), 0);
+            EXPECT_LE(distance, network_parser.get_npus_counts_per_dim()[0]/2);
+
+            total_distance += distance;
+            count++;
+
+            //validate communicatio delay
+            const auto comm_delay = graph->send(i, j, 1);
+            const auto expected_delay = distance * network_parser.get_latencies_per_dim()[0];
+            EXPECT_EQ(comm_delay, expected_delay);
+        }
+    }
+
+    // average distance
+    const double average_distance = static_cast<double>(total_distance) / static_cast<double>(count);
+    std::cout << "Average distance in ExpanderGraph: " << average_distance << std::endl;
+    EXPECT_LE(average_distance, network_parser.get_npus_counts_per_dim()[0]/4.0);
 }

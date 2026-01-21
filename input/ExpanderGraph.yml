@@ -1,0 +1,15 @@
+# Network Configuration
+
+# 3D basic-topology, Ring_FullyConnected_Switch
+topology: [ ExpanderGraph ]  # Ring, Switch, FullyConnected
+
+# Ring with 32 NPUs
+npus_count: [ 32 ]  # number of NPUs
+
+# Bandwidth per each dimension
+bandwidth: [ 50.0 ]  # GB/s
+
+# Latency per each dimension
+latency: [ 500.0 ]  # ns
+
+inputfile: ["/workspace/astra-sim/expander_switch_32_8.json"]

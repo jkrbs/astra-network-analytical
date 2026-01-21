@@ -60,6 +60,13 @@ class NetworkParser {
      */
     [[nodiscard]] std::vector<TopologyBuildingBlock> get_topologies_per_dim() const noexcept;
 
+    /**
+     * Read optional "inputfile" value for ExpanderGraph topologies
+     *
+     * @return inputfile paths per each dimension (empty string if not specified)
+     */
+    [[nodiscard]] std::vector<std::string> get_inputfiles_per_dim() const noexcept;
+
   private:
     /// number of network dimensions
     int dims_count;
@@ -75,6 +82,9 @@ class NetworkParser {
 
     /// topology building block per each dimension
     std::vector<TopologyBuildingBlock> topology_per_dim;
+
+    /// optional inputfile paths per each dimension (for ExpanderGraph)
+    std::vector<std::string> inputfile_per_dim;
 
     /**
      * Parse topology name (in string) into TopologyBuildingBlock enum

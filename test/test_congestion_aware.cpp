@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 #include "common/Type.h"
 #include "congestion_aware/Chunk.h"
 #include "congestion_aware/Helper.h"
+#include "congestion_aware/ExpanderGraph.h"
 #include <gtest/gtest.h>
 
 using namespace NetworkAnalytical;
@@ -131,4 +132,58 @@ TEST_F(TestNetworkAnalyticalCongestionAware, AllGatherOnRing) {
     /// test
     const auto simulation_time = event_queue->get_current_time();
     EXPECT_EQ(simulation_time, 704'116);
+}
+
+TEST_F(TestNetworkAnalyticalCongestionAware, ExpanderGraph) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/ExpanderGraph.yml");
+    const auto topology = construct_topology(network_parser);
+    
+    // assert topology type
+    auto graph = std::dynamic_pointer_cast<ExpanderGraph>(topology);
+    ASSERT_NE(graph, nullptr);
+
+    // validate that every node has degree 8
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        const auto& neighbors = graph->adjacency_list.at(i);
+        EXPECT_EQ(neighbors.size(), 8);
+    }
+
+    unsigned int total_distance = 0;
+    unsigned int count = 0;
+
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]/2; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            // all distances should be <= N/2
+            const auto route = graph->route(i, j);
+            std::cout << std::endl;
+            EXPECT_LE(route.size(), network_parser.get_npus_counts_per_dim()[0]/2);
+
+            total_distance += route.size();
+            count++;
+        
+            auto chunk = std::make_unique<Chunk>(1, route, callback, nullptr);
+            //validate communicatio delay
+            topology->send(std::move(chunk));
+            auto send_time = event_queue->get_current_time();
+            /// Run simulation
+            while (!event_queue->finished()) {
+                event_queue->proceed();
+            }
+            auto comm_delay = event_queue->get_current_time() - send_time;
+            // event_queue->reset();
+
+            // expected delay = (link count) * latency per link, link count = route.size() - 1
+            const auto expected_delay = (route.size() - 1) * network_parser.get_latencies_per_dim()[0];
+            EXPECT_EQ(comm_delay, expected_delay);
+        }
+    }
+
+    // average distance
+    const double average_distance = static_cast<double>(total_distance) / static_cast<double>(count);
+    std::cout << "Average distance in ExpanderGraph: " << average_distance << std::endl;
+    EXPECT_LE(average_distance, network_parser.get_npus_counts_per_dim()[0]/4.0);
 }

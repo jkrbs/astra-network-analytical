@@ -7,6 +7,8 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_aware/FullyConnected.h"
 #include "congestion_aware/Ring.h"
 #include "congestion_aware/Switch.h"
+#include "congestion_aware/ExpanderGraph.h"
+#include "congestion_aware/MultiDimTopology.h"
 #include <cstdlib>
 #include <iostream>
 
@@ -21,29 +23,74 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
     const auto npus_counts_per_dim = network_parser.get_npus_counts_per_dim();
     const auto bandwidths_per_dim = network_parser.get_bandwidths_per_dim();
     const auto latencies_per_dim = network_parser.get_latencies_per_dim();
+    const auto inputfiles_per_dim = network_parser.get_inputfiles_per_dim();
 
-    // for now, congestion_aware backend supports 1-dim topology only
-    if (dims_count != 1) {
-        std::cerr << "[Error] (network/analytical/congestion_aware) " << "only support 1-dim topology" << std::endl;
-        std::exit(-1);
+    // if dims_count is 1, just create basic topology
+    if (dims_count == 1) {
+        // retrieve basic topology info
+        const auto topology_type = topologies_per_dim[0];
+        const auto npus_count = npus_counts_per_dim[0];
+        const auto bandwidth = bandwidths_per_dim[0];
+        const auto latency = latencies_per_dim[0];
+
+        // create and return basic topology
+        switch (topology_type) {
+        case TopologyBuildingBlock::Ring:
+            return std::make_shared<Ring>(npus_count, bandwidth, latency);
+        case TopologyBuildingBlock::Switch:
+            return std::make_shared<Switch>(npus_count, bandwidth, latency);
+        case TopologyBuildingBlock::FullyConnected:
+            return std::make_shared<FullyConnected>(npus_count, bandwidth, latency);
+    case TopologyBuildingBlock::ExpanderGraph:
+        // Use inputfile if provided, otherwise use degree 8
+        return std::make_shared<ExpanderGraph>(npus_count, 8, bandwidth, latency,
+                                                inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
+        default:
+            // shouldn't reach here
+            std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported topology" << std::endl;
+            std::exit(-1);
+        }
     }
 
-    // retrieve basic basic-topology info
-    const auto topology_type = topologies_per_dim[0];
-    const auto npus_count = npus_counts_per_dim[0];
-    const auto bandwidth = bandwidths_per_dim[0];
-    const auto latency = latencies_per_dim[0];
+    // otherwise, create multi-dim basic-topology
+    const auto multi_dim_topology = std::make_shared<MultiDimTopology>();
 
-    switch (topology_type) {
-    case TopologyBuildingBlock::Ring:
-        return std::make_shared<Ring>(npus_count, bandwidth, latency);
-    case TopologyBuildingBlock::Switch:
-        return std::make_shared<Switch>(npus_count, bandwidth, latency);
-    case TopologyBuildingBlock::FullyConnected:
-        return std::make_shared<FullyConnected>(npus_count, bandwidth, latency);
-    default:
-        // shouldn't reaach here
-        std::cerr << "[Error] (network/analytical/congestion_aware) " << "not supported basic-topology" << std::endl;
-        std::exit(-1);
+    // create and append dims
+    for (auto dim = 0; dim < dims_count; dim++) {
+        // retrieve info
+        const auto topology_type = topologies_per_dim[dim];
+        const auto npus_count = npus_counts_per_dim[dim];
+        const auto bandwidth = bandwidths_per_dim[dim];
+        const auto latency = latencies_per_dim[dim];
+
+        // create a network dim
+        std::unique_ptr<BasicTopology> dim_topology;
+        switch (topology_type) {
+        case TopologyBuildingBlock::Ring:
+            dim_topology = std::make_unique<Ring>(npus_count, bandwidth, latency);
+            break;
+        case TopologyBuildingBlock::Switch:
+            dim_topology = std::make_unique<Switch>(npus_count, bandwidth, latency);
+            break;
+        case TopologyBuildingBlock::FullyConnected:
+            dim_topology = std::make_unique<FullyConnected>(npus_count, bandwidth, latency);
+            break;
+    case TopologyBuildingBlock::ExpanderGraph:
+        // Use inputfile if provided, otherwise use degree 8
+        dim_topology = std::make_unique<ExpanderGraph>(npus_count, 8, bandwidth, latency,
+                                                        dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "");
+        break;
+        default:
+            // shouldn't reach here
+            std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported basic-topology"
+                      << std::endl;
+            std::exit(-1);
+        }
+
+        // append network dimension
+        multi_dim_topology->append_dimension(std::move(dim_topology));
     }
+
+    // return created multi-dimensional topology
+    return multi_dim_topology;
 }
