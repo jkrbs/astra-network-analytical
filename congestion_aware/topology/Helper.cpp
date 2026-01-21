@@ -41,10 +41,9 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
             return std::make_shared<Switch>(npus_count, bandwidth, latency);
         case TopologyBuildingBlock::FullyConnected:
             return std::make_shared<FullyConnected>(npus_count, bandwidth, latency);
-    case TopologyBuildingBlock::ExpanderGraph:
-        // Use inputfile if provided, otherwise use degree 8
-        return std::make_shared<ExpanderGraph>(npus_count, 8, bandwidth, latency,
-                                                inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
+        case TopologyBuildingBlock::ExpanderGraph:
+            return std::make_shared<ExpanderGraph>(npus_count, bandwidth, latency,
+                                            inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
         default:
             // shouldn't reach here
             std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported topology" << std::endl;

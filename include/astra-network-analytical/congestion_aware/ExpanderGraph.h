@@ -34,7 +34,7 @@ class ExpanderGraph final : public BasicTopology {
      * @param latency latency of each link
      * @param inputfile path to JSON file defining the expander graph topology
      */
-    ExpanderGraph(int npus_count, unsigned int degree, Bandwidth bandwidth, Latency latency, const std::string& inputfile = std::string()) noexcept;
+    ExpanderGraph(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile = std::string()) noexcept;
     unsigned int get_distance(const DeviceId src, const DeviceId dest, std::set<DeviceId> visited, unsigned int current_distance) const noexcept;
     std::map<DeviceId, std::vector<DeviceId>> adjacency_list;
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;

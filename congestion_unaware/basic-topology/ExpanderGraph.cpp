@@ -33,9 +33,6 @@ void ExpanderGraph::connect(DeviceId src, DeviceId dest) {
     // create bidirectional connection between src and dest in adjacency list
     adjacency_list[src].push_back(dest);
     adjacency_list[dest].push_back(src);
-    
-    // create actual topology connection (for distance calculations)
-    BasicTopology::connect(src, dest);
 }
 
 ExpanderGraph::ExpanderGraph(const int npus_count, const unsigned int degree, const Bandwidth bandwidth, const Latency latency, const std::string& inputfile) noexcept

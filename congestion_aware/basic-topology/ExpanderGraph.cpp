@@ -40,12 +40,12 @@ void ExpanderGraph::connect(DeviceId src, DeviceId dest) {
 }
 
 
-ExpanderGraph::ExpanderGraph(const int npus_count, const unsigned int degree, const Bandwidth bandwidth, const Latency latency, const std::string& inputfile) noexcept
+ExpanderGraph::ExpanderGraph(const int npus_count, const Bandwidth bandwidth, const Latency latency, const std::string& inputfile) noexcept
     : BasicTopology(npus_count, npus_count, bandwidth, latency) {
     assert(npus_count > 0);
     assert(bandwidth > 0);
     assert(latency >= 0);
-    
+    int degree = 0;
     std::string inputfile_str = std::string(inputfile);
     // set the building block type
     basic_topology_type = TopologyBuildingBlock::ExpanderGraph;
@@ -68,7 +68,7 @@ ExpanderGraph::ExpanderGraph(const int npus_count, const unsigned int degree, co
         file.close();
 
         int node_count = j["node_count"];
-        int graph_degree = j["degree"];
+        degree = j["degree"];
         
         // Check if we should use split graph (when npus_count is exactly half)
         bool use_split = (npus_count * 2 == node_count);
@@ -141,9 +141,9 @@ ExpanderGraph::ExpanderGraph(const int npus_count, const unsigned int degree, co
         
         // Verify the graph degree
         for (int i = 0; i < npus_count; ++i) {
-            if (adjacency_list[i].size() != graph_degree) {
+            if (adjacency_list[i].size() != degree) {
                 std::cerr << "[Warning] Node " << i << " has degree " << adjacency_list[i].size() 
-                          << " but expected " << graph_degree << std::endl;
+                          << " but expected " << degree << std::endl;
             }
         }
     } else {
