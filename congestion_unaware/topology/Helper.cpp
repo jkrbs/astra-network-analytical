@@ -10,6 +10,7 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_unaware/MultiDimTopology.h"
 #include "congestion_unaware/Ring.h"
 #include "congestion_unaware/Switch.h"
+#include "congestion_unaware/SwitchOrExpander.h"
 #include <cstdlib>
 #include <iostream>
 
@@ -46,6 +47,9 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionUnaware::construct_topology
             // Use inputfile if provided, otherwise use degree 8
             return std::make_shared<ExpanderGraph>(npus_count, 8, bandwidth, latency, 
                                                    inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
+        case TopologyBuildingBlock::SwitchOrExpander:
+            return std::make_shared<SwitchOrExpander>(npus_count, bandwidth, latency,
+                                                      inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
         default:
             // shouldn't reach here
             std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported topology" << std::endl;
@@ -80,6 +84,10 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionUnaware::construct_topology
             // Use inputfile if provided, otherwise use degree 8
             dim_topology = std::make_unique<ExpanderGraph>(npus_count, 8, bandwidth, latency,
                                                            dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "");
+            break;
+        case TopologyBuildingBlock::SwitchOrExpander:
+            dim_topology = std::make_unique<SwitchOrExpander>(npus_count, bandwidth, latency,
+                                                             dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "");
             break;
         default:
             // shouldn't reach here

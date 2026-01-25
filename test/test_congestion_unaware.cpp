@@ -112,3 +112,51 @@ TEST_F(TestNetworkAnalyticalCongestionUnaware, ExpanderGraph) {
     std::cout << "Average distance in ExpanderGraph: " << average_distance << std::endl;
     EXPECT_LE(average_distance, network_parser.get_npus_counts_per_dim()[0]/4.0);
 }
+
+TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/SwitchOrExpander.yml");
+    const auto topology = construct_topology(network_parser);
+    
+    // assert topology type
+    auto graph = std::dynamic_pointer_cast<SwitchOrExpander>(topology);
+    ASSERT_NE(graph, nullptr);
+
+    // test moe mode
+    use_moe_routing = true;    
+
+    // validate that every node has degree 8
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        const auto& neighbors = graph->adjacency_list.at(i);
+        EXPECT_EQ(neighbors.size(), 4);
+    }
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            const auto distance = graph->compute_hops_count(i, j);
+            // in moe mode, distances should be <= log8(N)
+            EXPECT_LE(distance, 2);
+            const auto delay = graph->send(i, j, 1);
+            
+            EXPECT_LE(delay, 2 * network_parser.get_latencies_per_dim()[0]);
+            EXPECT_EQ(distance * network_parser.get_latencies_per_dim()[0], delay);
+        }
+    }
+
+    // test switch mode
+    use_moe_routing = false;
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            const auto distance = graph->compute_hops_count(i, j);
+            const auto delay = graph->send(i, j, 1);
+            // in switch mode, all routes should be direct via switch hop
+            EXPECT_EQ(distance, 2);
+            EXPECT_EQ(delay, 2 * network_parser.get_latencies_per_dim()[0]);
+        }
+    }
+}

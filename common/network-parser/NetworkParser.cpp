@@ -116,6 +116,11 @@ TopologyBuildingBlock NetworkParser::parse_topology_name(const std::string& topo
         return TopologyBuildingBlock::ExpanderGraph;
     }
 
+    if (topology_name == "SwitchOrExpander") {
+        std::cerr << "[Warning] (network/analytical) Topology 'SwitchOrExpander' not supported in this build; using 'Switch' instead" << std::endl;
+        return TopologyBuildingBlock::Switch;
+    }
+
     // shouldn't reach here
     std::cerr << "[Error] (network/analytical) " << "Topology name " << topology_name << " not supported" << std::endl;
     std::exit(-1);
