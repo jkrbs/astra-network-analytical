@@ -191,11 +191,65 @@ TEST_F(TestNetworkAnalyticalCongestionAware, ExpanderGraph) {
     EXPECT_LE(average_distance, network_parser.get_npus_counts_per_dim()[0]/4.0);
 }
 
+TEST_F(TestNetworkAnalyticalCongestionAware, ExpanderGraph_Splitted) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/ExpanderGraph_Splitted.yml");
+    const auto topology = construct_topology(network_parser);
+    
+    // assert topology type
+    auto graph = std::dynamic_pointer_cast<ExpanderGraph>(topology);
+    ASSERT_NE(graph, nullptr);
+
+    // validate that every node has degree 8
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        const auto& neighbors = graph->adjacency_list.at(i);
+        EXPECT_EQ(neighbors.size(), 8);
+    }
+
+    unsigned int total_distance = 0;
+    unsigned int count = 0;
+
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]/2; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            // all distances should be <= N/2
+            const auto route = graph->route(i, j);
+            std::cout << std::endl;
+            EXPECT_LE(route.size(), network_parser.get_npus_counts_per_dim()[0]/2);
+
+            total_distance += route.size();
+            count++;
+        
+            auto chunk = std::make_unique<Chunk>(1, route, callback, nullptr);
+            //validate communicatio delay
+            topology->send(std::move(chunk));
+            auto send_time = event_queue->get_current_time();
+            /// Run simulation
+            while (!event_queue->finished()) {
+                event_queue->proceed();
+            }
+            auto comm_delay = event_queue->get_current_time() - send_time;
+            // event_queue->reset();
+
+            // expected delay = (link count) * latency per link, link count = route.size() - 1
+            const auto expected_delay = (route.size() - 1) * network_parser.get_latencies_per_dim()[0];
+            EXPECT_EQ(comm_delay, expected_delay);
+        }
+    }
+
+    // average distance
+    const double average_distance = static_cast<double>(total_distance) / static_cast<double>(count);
+    std::cout << "Average distance in ExpanderGraph: " << average_distance << std::endl;
+    EXPECT_LE(average_distance, network_parser.get_npus_counts_per_dim()[0]/4.0);
+}
+
 TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
     // create network
     const auto network_parser = NetworkParser("../../input/SwitchOrExpander.yml");
     const auto topology = construct_topology(network_parser);
-    
+
     // assert topology type
     auto graph = std::dynamic_pointer_cast<SwitchOrExpander>(topology);
     ASSERT_NE(graph, nullptr);
@@ -205,9 +259,62 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
 
     // validate that every node has degree 8
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
-        const auto& neighbors = graph->adjacency_list.at(i);
+        const auto& neighbors = graph->get_adjacency_list().at(i);
         EXPECT_EQ(neighbors.size(), 4);
     }
+
+
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            const auto distance = graph->compute_hops_count(i, j);
+            // in moe mode, distances should be <= log8(N)
+            EXPECT_LE(distance, 3);
+            const auto route = graph->route(i, j);
+            
+            EXPECT_LE(route.size(), 4);
+            EXPECT_EQ(distance, route.size() -1);
+        }
+    }
+
+    // test switch mode
+    use_moe_routing = false;
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
+            if (i == j) {
+                continue;
+            }
+            const auto distance = graph->compute_hops_count(i, j);
+            const auto route = graph->route(i, j);
+            // in switch mode, all routes should be direct via switch hop
+            EXPECT_EQ(route.size(), 3);
+            EXPECT_EQ(distance, 2);
+        }
+    }
+}
+
+// test splitted expander graph
+TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander_Splitted) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/SwitchOrExpander_Splitted.yml");
+    const auto topology = construct_topology(network_parser);
+
+    // assert topology type
+    auto graph = std::dynamic_pointer_cast<SwitchOrExpander>(topology);
+    ASSERT_NE(graph, nullptr);
+
+    // test moe mode
+    use_moe_routing = true;    
+
+    // validate that every node has degree 8
+    for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
+        const auto& neighbors = graph->get_adjacency_list().at(i);
+        EXPECT_EQ(neighbors.size(), 8);
+    }
+
+
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
         for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
             if (i == j) {

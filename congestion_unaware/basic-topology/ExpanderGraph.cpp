@@ -85,7 +85,7 @@ ExpanderGraph::ExpanderGraph(const int npus_count, const unsigned int degree, co
             
             // Use connected_graph_adjacency to build the graph
             // This is an adjacency list where index i contains neighbors of node i
-            auto adjacency = j["connected_graph_adjacency"];
+            auto adjacency = j["split_graph_adjacency"];
             
             for (size_t node_id = 0; node_id < adjacency.size(); ++node_id) {
                 // Only process nodes in group A

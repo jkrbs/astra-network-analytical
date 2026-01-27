@@ -18,10 +18,18 @@ Switch::Switch(const int npus_count, const Bandwidth bandwidth, const Latency la
 
     // set switch id
     switch_id = npus_count;
+    
+    // initialize adjacency list
+    for (auto i = 0; i <= npus_count; i++) {
+        adjacency_list[i] = std::vector<DeviceId>();
+    }
+    adjacency_list[switch_id] = std::vector<DeviceId>();
 
     // connect npus and switches, the link should be bidirectional
     for (auto i = 0; i < npus_count; i++) {
         connect(i, switch_id, bandwidth, latency, true);
+        adjacency_list[i].push_back(switch_id);
+        adjacency_list[switch_id].push_back(i);
     }
 }
 

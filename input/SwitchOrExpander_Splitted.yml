@@ -1,0 +1,5 @@
+topology: [ SwitchOrExpander ]
+npus_count: [ 16 ]  # DP=2, TP=8, EP=8 (PP dimension omitted since PP=1)
+bandwidth: [ 400.0 ]  # GB/s per dimension (DP, TP, EP)
+latency: [ 500.0 ]  # ns per dimension
+inputfile: [ "/workspace/astra-sim/expander_switch_32_8.json"]

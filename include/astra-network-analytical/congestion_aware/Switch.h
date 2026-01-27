@@ -43,7 +43,7 @@ class Switch final : public BasicTopology {
      * Implementation of route function in Topology.
      */
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
-
+    std::map<DeviceId, std::vector<DeviceId>> adjacency_list;
   private:
     /// node_id of the switch node
     DeviceId switch_id;

@@ -19,7 +19,10 @@ Ring::Ring(const int npus_count, const Bandwidth bandwidth, const Latency latenc
     for (auto i = 0; i < npus_count - 1; i++) {
         connect(i, i + 1, bandwidth, latency, bidirectional);
     }
-    connect(npus_count - 1, 0, bandwidth, latency, bidirectional);
+    // wrap around connection - only connect once direction if already bidirectional
+    if (npus_count > 2 || !bidirectional) {
+        connect(npus_count - 1, 0, bandwidth, latency, bidirectional);
+    }
 }
 
 Route Ring::route(DeviceId src, DeviceId dest) const noexcept {
