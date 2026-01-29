@@ -90,6 +90,8 @@ class Topology {
      */
     [[nodiscard]] std::vector<Bandwidth> get_bandwidth_per_dim() const noexcept;
 
+
+    [[nodiscard]] std::vector<DeviceId> get_all_device_ids() const noexcept;
   protected:
     /// number of total devices in the topology
     /// device includes non-NPU devices such as switches

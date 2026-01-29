@@ -12,7 +12,7 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_aware/SwitchOrExpander.h"
 #include <gtest/gtest.h>
 
-extern bool use_moe_routing;
+extern std::shared_ptr<std::map<NetworkAnalytical::DeviceId, bool>> use_moe_routing;
 
 using namespace NetworkAnalytical;
 using namespace NetworkAnalyticalCongestionAware;
@@ -255,7 +255,9 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
     ASSERT_NE(graph, nullptr);
 
     // test moe mode
-    use_moe_routing = true;    
+    for (auto device_id : topology->get_all_device_ids()) {
+        (*use_moe_routing)[device_id] = true;
+    }
 
     // validate that every node has degree 8
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
@@ -280,7 +282,10 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
     }
 
     // test switch mode
-    use_moe_routing = false;
+    for (auto device_id : topology->get_all_device_ids()) {
+        (*use_moe_routing)[device_id] = false;
+    }
+
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
         for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
             if (i == j) {
@@ -306,7 +311,9 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander_Splitted) {
     ASSERT_NE(graph, nullptr);
 
     // test moe mode
-    use_moe_routing = true;    
+    for (auto device_id : topology->get_all_device_ids()) {
+        (*use_moe_routing)[device_id] = true;
+    }
 
     // validate that every node has degree 8
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
@@ -331,7 +338,10 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander_Splitted) {
     }
 
     // test switch mode
-    use_moe_routing = false;
+    for (auto device_id : topology->get_all_device_ids()) {
+        (*use_moe_routing)[device_id] = false;
+    }
+
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
         for (DeviceId j = 0; j < network_parser.get_npus_counts_per_dim()[0]; ++j) {
             if (i == j) {

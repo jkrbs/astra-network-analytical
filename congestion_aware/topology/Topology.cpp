@@ -95,3 +95,11 @@ void Topology::instantiate_devices() noexcept {
         devices.push_back(std::make_shared<Device>(i));
     }
 }
+
+std::vector<DeviceId> Topology::get_all_device_ids() const noexcept {
+    std::vector<DeviceId> device_ids;
+    for (const auto& device_ptr : devices) {
+        device_ids.push_back(device_ptr->get_id());
+    }
+    return device_ids;
+}
