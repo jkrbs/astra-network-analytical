@@ -69,6 +69,16 @@ std::vector<std::string> NetworkParser::get_inputfiles_per_dim() const noexcept 
     return inputfile_per_dim;
 }
 
+std::vector<std::string> NetworkParser::get_routing_algorithms_per_dim() const noexcept {
+    assert(dims_count > 0);
+    
+    return routing_algorithm_per_dim;
+}
+
+bool NetworkParser::get_use_resiliency() const noexcept {
+    return use_resiliency;
+}
+
 void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) noexcept {
     // parse topology_per_dim
     const auto topology_names = parse_vector<std::string>(network_config["topology"]);
@@ -92,6 +102,18 @@ void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) n
         // Fill with empty strings if not provided
         inputfile_per_dim = std::vector<std::string>(dims_count, "");
     }
+
+    // parse optional routing_algorithm parameter
+    if (network_config["routing_algorithm"]) {
+        routing_algorithm_per_dim = parse_vector<std::string>(network_config["routing_algorithm"]);
+    } else {
+        // empty strings if not provided
+        routing_algorithm_per_dim = std::vector<std::string>(dims_count, "");
+    }
+    if (network_config["resiliancy_npus"]) {
+        use_resiliency = true;
+    }
+
 
     // check the validity of the parsed network config
     check_validity();

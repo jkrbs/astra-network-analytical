@@ -10,7 +10,7 @@ namespace NetworkAnalyticalCongestionAware {
 
 class SwitchOrExpander final : public BasicTopology {
   public:
-    SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile = std::string()) noexcept;
+    SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile = std::string(), const std::string& routing_algorithm = std::string(), bool use_resiliency = false) noexcept;
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
     unsigned int get_distance(const DeviceId src, const DeviceId dest) const noexcept;
     int compute_hops_count(const DeviceId src, const DeviceId dest) const noexcept;

@@ -10,8 +10,8 @@ std::shared_ptr<std::map<DeviceId, bool>> use_moe_routing;
 using namespace NetworkAnalytical;
 using namespace NetworkAnalyticalCongestionAware;
 
-SwitchOrExpander::SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile) noexcept
-        : BasicTopology(npus_count, npus_count + 1, bandwidth, latency),
+SwitchOrExpander::SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile, const std::string& routing_algorithm, bool use_resiliency) noexcept
+        : BasicTopology(npus_count, npus_count + (npus_count/8), bandwidth, latency),
             switch_topology(npus_count, bandwidth, latency) {
     assert(npus_count > 0);
     assert(bandwidth > 0);
@@ -26,7 +26,7 @@ SwitchOrExpander::SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency 
     
     // build expander graph from file (if provided)
     if (!inputfile.empty()) {
-        expander_topology = std::make_unique<ExpanderGraph>(npus_count, bandwidth, latency, inputfile);
+        expander_topology = std::make_unique<ExpanderGraph>(npus_count, bandwidth, latency, inputfile, routing_algorithm, use_resiliency);
         std::cout << "[SwitchOrExpander] Expander graph loaded from file: " << inputfile << std::endl;
     }
 

@@ -25,7 +25,9 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
     const auto bandwidths_per_dim = network_parser.get_bandwidths_per_dim();
     const auto latencies_per_dim = network_parser.get_latencies_per_dim();
     const auto inputfiles_per_dim = network_parser.get_inputfiles_per_dim();
-
+    const auto routing_algorithm_per_dim = network_parser.get_routing_algorithms_per_dim();
+    const auto use_resiliency = network_parser.get_use_resiliency();
+    
     // if dims_count is 1, just create basic topology
     if (dims_count == 1) {
         // retrieve basic topology info
@@ -44,13 +46,13 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
             return std::make_shared<FullyConnected>(npus_count, bandwidth, latency);
         case TopologyBuildingBlock::ExpanderGraph:
             return std::make_shared<ExpanderGraph>(npus_count, bandwidth, latency,
-                                            inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
+                                            inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0], routing_algorithm_per_dim.empty() ? "" : routing_algorithm_per_dim[0], use_resiliency);
         case TopologyBuildingBlock::SwitchOrExpander:
             return std::make_shared<SwitchOrExpander>(npus_count, bandwidth, latency,
-                                            inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0]);
+                                            inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0], routing_algorithm_per_dim.empty() ? "" : routing_algorithm_per_dim[0], use_resiliency);
         default:
             // shouldn't reach here
-            std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported topology" << std::endl;
+            std::cerr << "[Error] (network/analytical/congestion_aware)" << "Not supported topology" << std::endl;
             std::exit(-1);
         }
     }
@@ -79,12 +81,18 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
             dim_topology = std::make_unique<FullyConnected>(npus_count, bandwidth, latency);
             break;
         case TopologyBuildingBlock::ExpanderGraph:
-        dim_topology = std::make_unique<SwitchOrExpander>(npus_count, bandwidth, latency,
-                                                        dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "");
-        break;
+            dim_topology = std::make_unique<ExpanderGraph>(npus_count, bandwidth, latency,
+                                                        dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "",
+                                                        dim < routing_algorithm_per_dim.size() ? routing_algorithm_per_dim[dim] : "", use_resiliency);
+            break;
+        case TopologyBuildingBlock::SwitchOrExpander:
+            dim_topology =  std::make_unique<SwitchOrExpander>(npus_count, bandwidth, latency,
+                                                        dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "",
+                                                        dim < routing_algorithm_per_dim.size() ? routing_algorithm_per_dim[dim] : "", use_resiliency);
+            break;
         default:
             // shouldn't reach here
-            std::cerr << "[Error] (network/analytical/congestion_unaware)" << "Not supported basic-topology"
+            std::cerr << "[Error] (network/analytical/congestion_aware)" << "Not supported basic-topology"
                       << std::endl;
             std::exit(-1);
         }

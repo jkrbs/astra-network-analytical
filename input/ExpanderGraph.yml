@@ -5,6 +5,7 @@ topology: [ ExpanderGraph ]  # Ring, Switch, FullyConnected
 
 # Ring with 32 NPUs
 npus_count: [ 32 ]  # number of NPUs
+resiliancy_npus: true
 
 # Bandwidth per each dimension
 bandwidth: [ 50.0 ]  # GB/s
@@ -12,4 +13,4 @@ bandwidth: [ 50.0 ]  # GB/s
 # Latency per each dimension
 latency: [ 500.0 ]  # ns
 
-inputfile: ["/workspace/astra-sim/expander_switch_32_8.json"]
+inputfile: ["/workspace/astra-sim/expander_switch_36_8.json"]

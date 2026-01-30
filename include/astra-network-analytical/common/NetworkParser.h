@@ -67,6 +67,15 @@ class NetworkParser {
      */
     [[nodiscard]] std::vector<std::string> get_inputfiles_per_dim() const noexcept;
 
+    /**
+     * Read optional "routing_algorithm" value for ExpanderGraph topologies
+     *
+     * @return routing_algorithm per each dimension (empty string if not specified)
+     */
+    [[nodiscard]] std::vector<std::string> get_routing_algorithms_per_dim() const noexcept;
+
+    [[nodiscard]] bool get_use_resiliency() const noexcept;
+
   private:
     /// number of network dimensions
     int dims_count;
@@ -83,8 +92,14 @@ class NetworkParser {
     /// topology building block per each dimension
     std::vector<TopologyBuildingBlock> topology_per_dim;
 
+    /// optional routing_algorithm per each dimension (for ExpanderGraph)
+    std::vector<std::string> routing_algorithm_per_dim;
+
     /// optional inputfile paths per each dimension (for ExpanderGraph)
     std::vector<std::string> inputfile_per_dim;
+
+    /// optional use_resilieny flag for expanders
+    bool use_resiliency = false;
 
     /**
      * Parse topology name (in string) into TopologyBuildingBlock enum
@@ -95,6 +110,7 @@ class NetworkParser {
      */
     [[nodiscard]] static TopologyBuildingBlock parse_topology_name(const std::string& topology_name) noexcept;
 
+    [[nodiscard]] static std::string parse_routing_algorithm_name(const std::string& routing_algorithm_name) noexcept;
     /**
      * Parse the given YAML node and retrieve network configuration values
      *

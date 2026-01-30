@@ -200,6 +200,12 @@ TEST_F(TestNetworkAnalyticalCongestionAware, ExpanderGraph_Splitted) {
     auto graph = std::dynamic_pointer_cast<ExpanderGraph>(topology);
     ASSERT_NE(graph, nullptr);
 
+    // using resilient expander. Ensure devices = npus + (npus/8)
+    auto devices = graph->get_devices_count();
+    auto npus = graph->get_npus_count();
+    EXPECT_EQ(devices, 36);
+    EXPECT_EQ(npus + (npus/8), devices);
+
     // validate that every node has degree 8
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
         const auto& neighbors = graph->adjacency_list.at(i);
@@ -217,7 +223,7 @@ TEST_F(TestNetworkAnalyticalCongestionAware, ExpanderGraph_Splitted) {
             // all distances should be <= N/2
             const auto route = graph->route(i, j);
             std::cout << std::endl;
-            EXPECT_LE(route.size(), network_parser.get_npus_counts_per_dim()[0]/2);
+            EXPECT_LE(route.size(), network_parser.get_npus_counts_per_dim()[0]/2 +1);
 
             total_distance += route.size();
             count++;
@@ -254,6 +260,12 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
     auto graph = std::dynamic_pointer_cast<SwitchOrExpander>(topology);
     ASSERT_NE(graph, nullptr);
 
+       // using resilient expander. Ensure devices = npus + (npus/8)
+    auto devices = graph->get_devices_count();
+    auto npus = graph->get_npus_count();
+    EXPECT_EQ(devices, 18);
+    EXPECT_EQ(npus + (npus/8), devices);
+
     // test moe mode
     for (auto device_id : topology->get_all_device_ids()) {
         (*use_moe_routing)[device_id] = true;
@@ -273,10 +285,10 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander) {
             }
             const auto distance = graph->compute_hops_count(i, j);
             // in moe mode, distances should be <= log8(N)
-            EXPECT_LE(distance, 3);
+            EXPECT_LE(distance, 4);
             const auto route = graph->route(i, j);
             
-            EXPECT_LE(route.size(), 4);
+            EXPECT_LE(route.size(), 5);
             EXPECT_EQ(distance, route.size() -1);
         }
     }
@@ -314,6 +326,12 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander_Splitted) {
     for (auto device_id : topology->get_all_device_ids()) {
         (*use_moe_routing)[device_id] = true;
     }
+
+       // using resilient expander. Ensure devices = npus + (npus/8)
+    auto devices = graph->get_devices_count();
+    auto npus = graph->get_npus_count();
+    EXPECT_EQ(devices, 18);
+    EXPECT_EQ(npus + (npus/8), devices);
 
     // validate that every node has degree 8
     for (DeviceId i = 0; i < network_parser.get_npus_counts_per_dim()[0]; ++i) {
