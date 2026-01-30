@@ -76,6 +76,12 @@ class NetworkParser {
 
     [[nodiscard]] bool get_use_resiliency() const noexcept;
 
+    /**
+     * Read optional "fattree_radix" value for FatTree topologies
+     *
+     * @return fattree_radix per each dimension (0 if not specified)
+     */
+    [[nodiscard]] std::vector<int> get_fattree_radix_per_dim() const noexcept;
   private:
     /// number of network dimensions
     int dims_count;
@@ -100,6 +106,9 @@ class NetworkParser {
 
     /// optional use_resilieny flag for expanders
     bool use_resiliency = false;
+
+    /// optional fattree_radix per each dimension (for FatTree)
+    std::vector<int> fattree_radix_per_dim;
 
     /**
      * Parse topology name (in string) into TopologyBuildingBlock enum

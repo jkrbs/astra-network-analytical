@@ -10,6 +10,7 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_aware/Helper.h"
 #include "congestion_aware/ExpanderGraph.h"
 #include "congestion_aware/SwitchOrExpander.h"
+#include "congestion_aware/FatTree.h"
 #include <gtest/gtest.h>
 
 extern std::shared_ptr<std::map<NetworkAnalytical::DeviceId, bool>> use_moe_routing;
@@ -372,4 +373,113 @@ TEST_F(TestNetworkAnalyticalCongestionAware, SwitchOrExpander_Splitted) {
             EXPECT_EQ(distance, 2);
         }
     }
+}
+
+TEST_F(TestNetworkAnalyticalCongestionAware, FatTree) {
+    // create network
+    const auto network_parsers = { NetworkParser("../../input/FatTree.yml"), NetworkParser("../../input/FatTree-Random.yml")};
+    for (auto network_parser : network_parsers) {
+    const auto topology = construct_topology(network_parser);
+    
+    // assert topology type
+    auto fat_tree = std::dynamic_pointer_cast<FatTree>(topology);
+    ASSERT_NE(fat_tree, nullptr);
+
+    // FatTree with 16 NPUs: k=4
+    // Pods: 4, Leaf switches per pod: 2, NPUs per leaf: 2
+    // Total leaf switches: 8, Spine switches: 4, Core switches: 4
+    const auto k = 4;
+    const auto pods = k;
+    const auto npus_per_leaf = k / 2;  // 2
+    const auto leaves_per_pod = k / 2;  // 2
+    const auto spines_per_pod = k / 2;  // 2
+    const auto total_leaves = (k * k) / 2;  // 8
+    const auto total_spines = (k * k) / 4;  // 4
+    const auto total_cores = (k / 2) * (k / 2);  // 4
+
+    // Test 1: Path lengths within the same leaf switch (same NPUs under same leaf)
+    for (int leaf = 0; leaf < total_leaves; ++leaf) {
+        for (int npu_a_idx = 0; npu_a_idx < npus_per_leaf; ++npu_a_idx) {
+            for (int npu_b_idx = 0; npu_b_idx < npus_per_leaf; ++npu_b_idx) {
+                if (npu_a_idx == npu_b_idx) {
+                    continue;
+                }
+                int src = leaf * npus_per_leaf + npu_a_idx;
+                int dest = leaf * npus_per_leaf + npu_b_idx;
+                
+                auto route = fat_tree->route(src, dest);
+                // Route: src -> leaf_switch -> dest (3 hops = 2 links)
+                EXPECT_EQ(route.size(), 3) 
+                    << "Within leaf path length should be 3 for src=" << src << " dest=" << dest;
+            }
+        }
+    }
+
+    // Test 2: Path lengths within the same pod (different leaves, same pod)
+    for (int pod = 0; pod < pods; ++pod) {
+        int leaf_base = pod * leaves_per_pod;
+        
+        for (int leaf_a = 0; leaf_a < leaves_per_pod; ++leaf_a) {
+            for (int leaf_b = 0; leaf_b < leaves_per_pod; ++leaf_b) {
+                if (leaf_a == leaf_b) {
+                    continue;
+                }
+                
+                int src_leaf = leaf_base + leaf_a;
+                int dest_leaf = leaf_base + leaf_b;
+                int src = src_leaf * npus_per_leaf;
+                int dest = dest_leaf * npus_per_leaf;
+                
+                auto route = fat_tree->route(src, dest);
+                // Route: src -> src_leaf -> spine -> dest_leaf -> dest (5 hops = 4 links)
+                EXPECT_EQ(route.size(), 5)
+                    << "Within pod path length should be 5 for src=" << src << " dest=" << dest;
+            }
+        }
+    }
+
+    // Test 3: Path lengths across different pods (entire network)
+    for (int src_pod = 0; src_pod < pods; ++src_pod) {
+        for (int dest_pod = 0; dest_pod < pods; ++dest_pod) {
+            if (src_pod == dest_pod) {
+                continue;
+            }
+            
+            int src_leaf = src_pod * leaves_per_pod;
+            int dest_leaf = dest_pod * leaves_per_pod;
+            int src = src_leaf * npus_per_leaf;
+            int dest = dest_leaf * npus_per_leaf;
+            
+            auto route = fat_tree->route(src, dest);
+            // Route: src -> src_leaf -> src_spine -> core -> dest_spine -> dest_leaf -> dest
+            // (7 hops = 6 links)
+            EXPECT_EQ(route.size(), 7)
+                << "Across pod path length should be 7 for src=" << src << " dest=" << dest;
+        }
+    }
+
+    // Test 4: Verify latency matches path lengths
+    const auto latency = network_parser.get_latencies_per_dim()[0];
+    
+    // Test within leaf
+    {
+        int src = 0;
+        int dest = 1;
+        auto route = fat_tree->route(src, dest);
+        
+        auto chunk = std::make_unique<Chunk>(1, route, callback, nullptr);
+        topology->send(std::move(chunk));
+        
+        auto send_time = event_queue->get_current_time();
+        while (!event_queue->finished()) {
+            event_queue->proceed();
+        }
+        auto comm_delay = event_queue->get_current_time() - send_time;
+        
+        // Expected delay = (route.size() - 1) * latency per link
+        const auto expected_delay = (route.size() - 1) * latency;
+        EXPECT_EQ(comm_delay, expected_delay);
+    }
+    }
+    std::cout << "FatTree tests completed successfully" << std::endl;
 }

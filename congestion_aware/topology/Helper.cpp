@@ -4,6 +4,7 @@ LICENSE file in the root directory of this source tree.
 *******************************************************************************/
 
 #include "congestion_aware/Helper.h"
+#include "congestion_aware/FatTree.h"
 #include "congestion_aware/FullyConnected.h"
 #include "congestion_aware/Ring.h"
 #include "congestion_aware/Switch.h"
@@ -26,6 +27,7 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
     const auto latencies_per_dim = network_parser.get_latencies_per_dim();
     const auto inputfiles_per_dim = network_parser.get_inputfiles_per_dim();
     const auto routing_algorithm_per_dim = network_parser.get_routing_algorithms_per_dim();
+    const auto fattree_radix_per_dim = network_parser.get_fattree_radix_per_dim();
     const auto use_resiliency = network_parser.get_use_resiliency();
     
     // if dims_count is 1, just create basic topology
@@ -50,6 +52,10 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
         case TopologyBuildingBlock::SwitchOrExpander:
             return std::make_shared<SwitchOrExpander>(npus_count, bandwidth, latency,
                                             inputfiles_per_dim.empty() ? "" : inputfiles_per_dim[0], routing_algorithm_per_dim.empty() ? "" : routing_algorithm_per_dim[0], use_resiliency);
+        case TopologyBuildingBlock::FatTree:
+            return std::make_shared<FatTree>(npus_count, fattree_radix_per_dim[0], bandwidth, latency,
+                                            routing_algorithm_per_dim.empty() ? "" : routing_algorithm_per_dim[0]);
+    
         default:
             // shouldn't reach here
             std::cerr << "[Error] (network/analytical/congestion_aware)" << "Not supported topology" << std::endl;
@@ -89,6 +95,12 @@ std::shared_ptr<Topology> NetworkAnalyticalCongestionAware::construct_topology(
             dim_topology =  std::make_unique<SwitchOrExpander>(npus_count, bandwidth, latency,
                                                         dim < inputfiles_per_dim.size() ? inputfiles_per_dim[dim] : "",
                                                         dim < routing_algorithm_per_dim.size() ? routing_algorithm_per_dim[dim] : "", use_resiliency);
+            break;
+        case TopologyBuildingBlock::FatTree:
+            dim_topology =  std::make_unique<FatTree>(npus_count, 
+                                                    dim < fattree_radix_per_dim.size() ? fattree_radix_per_dim[dim] : 4,
+                                                    bandwidth, latency,
+                                                    dim < routing_algorithm_per_dim.size() ? routing_algorithm_per_dim[dim] : "");
             break;
         default:
             // shouldn't reach here

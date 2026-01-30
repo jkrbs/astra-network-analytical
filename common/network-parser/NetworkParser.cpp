@@ -79,6 +79,12 @@ bool NetworkParser::get_use_resiliency() const noexcept {
     return use_resiliency;
 }
 
+std::vector<int> NetworkParser::get_fattree_radix_per_dim() const noexcept {
+    assert(dims_count > 0);
+    
+    return fattree_radix_per_dim;
+}
+
 void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) noexcept {
     // parse topology_per_dim
     const auto topology_names = parse_vector<std::string>(network_config["topology"]);
@@ -115,6 +121,14 @@ void NetworkParser::parse_network_config_yml(const YAML::Node& network_config) n
     }
 
 
+    // parse optional fattree_radix parameter (for FatTree topologies)
+    if (network_config["fattree_radix"]) {
+        fattree_radix_per_dim = parse_vector<int>(network_config["fattree_radix"]);
+    } else {
+        // default radix of 4 if not provided
+        fattree_radix_per_dim = std::vector<int>(dims_count, 4);
+    }
+
     // check the validity of the parsed network config
     check_validity();
 }
@@ -140,6 +154,10 @@ TopologyBuildingBlock NetworkParser::parse_topology_name(const std::string& topo
 
     if (topology_name == "SwitchOrExpander") {
         return TopologyBuildingBlock::SwitchOrExpander;
+    }
+
+    if (topology_name == "FatTree") {
+        return TopologyBuildingBlock::FatTree;
     }
 
     // shouldn't reach here
