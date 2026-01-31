@@ -10,6 +10,7 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_aware/Helper.h"
 #include "congestion_aware/ExpanderGraph.h"
 #include "congestion_aware/SwitchOrExpander.h"
+#include "congestion_aware/MultiDimTopology.h"
 #include "congestion_aware/FatTree.h"
 #include <gtest/gtest.h>
 
@@ -482,4 +483,55 @@ TEST_F(TestNetworkAnalyticalCongestionAware, FatTree) {
     }
     }
     std::cout << "FatTree tests completed successfully" << std::endl;
+}
+
+TEST_F(TestNetworkAnalyticalCongestionAware, MultiDimTopology_BuildAndValidate) {
+    // create network
+    const auto network_parser = NetworkParser("../../input/3D_with_MoE.yml");
+    const auto topology = construct_topology(network_parser);
+
+    // assert topology type
+    auto multi_dim_topology = std::dynamic_pointer_cast<MultiDimTopology>(topology);
+    ASSERT_NE(multi_dim_topology, nullptr);
+
+    // ensure reachability between all NPUs that share a single dimension
+    const auto npus_count = multi_dim_topology->get_npus_count();
+    for (DeviceId i = 0; i < npus_count; ++i) {
+        for (DeviceId j = 0; j < npus_count; ++j) {
+            if (i == j) {
+                continue;
+            }
+
+            const auto src_addr = multi_dim_topology->translate_address(i);
+            const auto dest_addr = multi_dim_topology->translate_address(j);
+
+            auto diff_count = 0;
+            for (size_t dim = 0; dim < src_addr.size(); ++dim) {
+                if (src_addr[dim] != dest_addr[dim]) {
+                    diff_count++;
+                }
+            }
+
+            // Only call route if src/dest differ in exactly one dimension (same slice)
+            if (diff_count != 1) {
+                // const auto route = multi_dim_topology->route(i, j);
+                // EXPECT_GT(route.size(), 20) << "Route found between " << i << " and " << j;
+                continue;
+            }
+
+            const auto route = multi_dim_topology->route(i, j);
+            EXPECT_LT(route.size(), 20) << "No route found between " << i << " and " << j;
+
+            // actually send packet via topology
+            auto chunk = std::make_unique<Chunk>(1, route, callback, nullptr);
+            topology->send(std::move(chunk));
+            auto send_time = event_queue->get_current_time();
+            /// Run simulation
+            while (!event_queue->finished()) {
+                event_queue->proceed();
+            }
+            auto comm_delay = event_queue->get_current_time() - send_time;
+            EXPECT_EQ(comm_delay, (route.size() -1) * 500);
+        }
+    }
 }

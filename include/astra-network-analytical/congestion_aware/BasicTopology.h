@@ -42,6 +42,12 @@ class BasicTopology : public Topology {
      */
     [[nodiscard]] TopologyBuildingBlock get_basic_topology_type() const noexcept;
 
+    /**
+     * Create a deep copy of this topology instance.
+     * Used to instantiate per-slice topologies in multi-dimensional routing.
+     */
+    [[nodiscard]] virtual std::unique_ptr<BasicTopology> clone() const noexcept = 0;
+
   protected:
     /// bandwidth of each link
     Bandwidth bandwidth;

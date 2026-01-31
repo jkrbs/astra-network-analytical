@@ -40,3 +40,7 @@ Route FullyConnected::route(const DeviceId src, const DeviceId dest) const noexc
 
     return route;
 }
+
+std::unique_ptr<BasicTopology> FullyConnected::clone() const noexcept {
+    return std::make_unique<FullyConnected>(npus_count, bandwidth, latency);
+}

@@ -38,6 +38,7 @@ class ExpanderGraph final : public BasicTopology {
     unsigned int get_distance(const DeviceId src, const DeviceId dest, std::set<DeviceId> visited, unsigned int current_distance) const noexcept;
     std::map<DeviceId, std::vector<DeviceId>> adjacency_list;
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
+    [[nodiscard]] std::unique_ptr<BasicTopology> clone() const noexcept override;
   private:
     enum class RoutingAlgorithm {
         ShortestPath,
@@ -45,6 +46,9 @@ class ExpanderGraph final : public BasicTopology {
     };
     RoutingAlgorithm str2RoutingAlgorithm(const std::string& algo_str);
     RoutingAlgorithm routing_algorithm = RoutingAlgorithm::ShortestPath;
+    std::string inputfile_path;
+    std::string routing_algorithm_str;
+    bool use_resiliency = false;
     Route route_shortest_path(DeviceId src, DeviceId dest) const noexcept;
     Route route_random_topk(DeviceId src, DeviceId dest) const noexcept;
 

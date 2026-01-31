@@ -39,6 +39,11 @@ class FullyConnected final : public BasicTopology {
      * Implementation of route function in Topology.
      */
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
+
+    /**
+     * Clone this topology instance.
+     */
+    [[nodiscard]] std::unique_ptr<BasicTopology> clone() const noexcept override;
 };
 
 }  // namespace NetworkAnalyticalCongestionAware

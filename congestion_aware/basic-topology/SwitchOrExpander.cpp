@@ -35,13 +35,18 @@ SwitchOrExpander::SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency 
     }
 }
 
+std::unique_ptr<BasicTopology> SwitchOrExpander::clone() const noexcept {
+    return std::make_unique<SwitchOrExpander>(npus_count, bandwidth, latency, inputfile_path, routing_algorithm_str,
+                                              use_resiliency);
+}
+
 unsigned int SwitchOrExpander::get_distance(const DeviceId src, const DeviceId dest) const noexcept {
     if (src == dest) {
         return 0;
     }
 
-    assert(*use_moe_routing[src] == *use_moe_routing[dest]); // both src and dest should use the same mode
-    bool use_moe = (*use_moe_routing)[src];
+    assert(use_moe_routing->at(src) == use_moe_routing->at(dest)); // both src and dest should use the same mode
+    bool use_moe = use_moe_routing->at(src);
     
     if (use_moe && expander_topology) {
         return expander_topology->get_distance(src, dest, std::set<DeviceId>(), 0);
@@ -54,8 +59,8 @@ unsigned int SwitchOrExpander::get_distance(const DeviceId src, const DeviceId d
 int SwitchOrExpander::compute_hops_count(const DeviceId src, const DeviceId dest) const noexcept {
     assert(src != dest);
 
-    assert(*use_moe_routing[src] == *use_moe_routing[dest]); // both src and dest should use the same mode
-    bool use_moe = (*use_moe_routing)[src];
+    assert(use_moe_routing->at(src) == use_moe_routing->at(dest)); // both src and dest should use the same mode
+    bool use_moe = use_moe_routing->at(src);
     
     if (use_moe && expander_topology) {
         return expander_topology->route(src, dest).size() - 1;
@@ -69,13 +74,13 @@ Route SwitchOrExpander::route(DeviceId src, DeviceId dest) const noexcept {
     assert(0 <= src && src < npus_count);
     assert(0 <= dest && dest < npus_count);
 
-    assert(*use_moe_routing[src] == *use_moe_routing[dest]); // both src and dest should use the same mode
-    bool use_moe = (*use_moe_routing)[src];
+    assert(use_moe_routing->at(src) == use_moe_routing->at(dest)); // both src and dest should use the same mode
+    bool use_moe = use_moe_routing->at(src);
 
     if (use_moe && expander_topology) {
         Route r = expander_topology->route(src, dest);
         for (const auto& device_id : r) {
-            assert(use_moe_routing[device_id->get_id()] == true;); // all devices in the route should be in moe mode 
+            assert(use_moe_routing->at(device_id->get_id()) == true); // all devices in the route should be in moe mode 
         }
         return r;
     }

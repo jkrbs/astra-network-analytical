@@ -123,6 +123,10 @@ FatTree::FatTree(int npus_count, int k, Bandwidth bandwidth, Latency latency,
     }
 }   
 
+std::unique_ptr<BasicTopology> FatTree::clone() const noexcept {
+    return std::make_unique<FatTree>(npus_count, k, bandwidth, latency, routing_algorithm_str);
+}   
+
 Route FatTree::route(DeviceId src, DeviceId dest) const noexcept {
     // assert npus are in valid range
     assert(0 <= src && src < npus_count);

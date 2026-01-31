@@ -182,6 +182,11 @@ ExpanderGraph::ExpanderGraph(const int npus_count, const Bandwidth bandwidth, co
     }
 }
 
+std::unique_ptr<BasicTopology> ExpanderGraph::clone() const noexcept {
+    return std::make_unique<ExpanderGraph>(npus_count, bandwidth, latency, inputfile_path, routing_algorithm_str,
+                                           use_resiliency);
+}
+
 unsigned int ExpanderGraph::get_distance(const DeviceId src, const DeviceId dest, std::set<DeviceId> visited, unsigned int current_distance) const noexcept {
     // Use distance cache
     std::pair<DeviceId, DeviceId> node_pair = std::make_pair(src, dest);

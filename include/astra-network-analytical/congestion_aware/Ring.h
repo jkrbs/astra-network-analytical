@@ -46,6 +46,11 @@ class Ring final : public BasicTopology {
      */
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
 
+    /**
+     * Clone this topology instance.
+     */
+    [[nodiscard]] std::unique_ptr<BasicTopology> clone() const noexcept override;
+
   private:
     /// true if the ring is bidirectional, false otherwise
     bool bidirectional;

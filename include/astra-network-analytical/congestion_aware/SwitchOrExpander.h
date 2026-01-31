@@ -12,6 +12,7 @@ class SwitchOrExpander final : public BasicTopology {
   public:
     SwitchOrExpander(int npus_count, Bandwidth bandwidth, Latency latency, const std::string& inputfile = std::string(), const std::string& routing_algorithm = std::string(), bool use_resiliency = false) noexcept;
     [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
+    [[nodiscard]] std::unique_ptr<BasicTopology> clone() const noexcept override;
     unsigned int get_distance(const DeviceId src, const DeviceId dest) const noexcept;
     int compute_hops_count(const DeviceId src, const DeviceId dest) const noexcept;
     std::map<DeviceId, std::vector<DeviceId>> get_adjacency_list() const noexcept;
@@ -20,6 +21,9 @@ class SwitchOrExpander final : public BasicTopology {
     Switch switch_topology;
     std::unique_ptr<ExpanderGraph> expander_topology;
     DeviceId switch_id;
+    std::string inputfile_path;
+    std::string routing_algorithm_str;
+    bool use_resiliency = false;
 };
 
 } // namespace NetworkAnalyticalCongestionAware

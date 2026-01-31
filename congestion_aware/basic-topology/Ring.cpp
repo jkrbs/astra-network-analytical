@@ -69,3 +69,7 @@ Route Ring::route(DeviceId src, DeviceId dest) const noexcept {
     // return the constructed route
     return route;
 }
+
+std::unique_ptr<BasicTopology> Ring::clone() const noexcept {
+    return std::make_unique<Ring>(npus_count, bandwidth, latency, bidirectional);
+}

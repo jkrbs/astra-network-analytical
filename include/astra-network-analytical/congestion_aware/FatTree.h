@@ -35,6 +35,7 @@ class FatTree final: public BasicTopology {
         FatTree(int npus_count, int k, Bandwidth bandwidth, Latency latency, 
                 const std::string& routing_algorithm = "Deterministic") noexcept;
         [[nodiscard]] Route route(DeviceId src, DeviceId dest) const noexcept override;
+        [[nodiscard]] std::unique_ptr<BasicTopology> clone() const noexcept override;
     private:
         [[nodiscard]] int compute_hops_count(DeviceId src, DeviceId dest) const noexcept;
         [[nodiscard]] static RoutingAlgorithm str2RoutingAlgorithm(const std::string& algo_str) noexcept;
@@ -46,5 +47,6 @@ class FatTree final: public BasicTopology {
         std::vector<int> npus_per_leaf;  // number of NPUs connected to each leaf switch
         std::vector<int> npu_to_leaf;  // mapping from NPU ID to leaf switch index
         RoutingAlgorithm routing_algorithm;  // routing algorithm mode
+        std::string routing_algorithm_str;
 };
 } // namespace NetworkAnalyticalCongestionAware

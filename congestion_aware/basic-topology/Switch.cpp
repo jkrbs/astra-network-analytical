@@ -47,3 +47,7 @@ Route Switch::route(DeviceId src, DeviceId dest) const noexcept {
 
     return route;
 }
+
+std::unique_ptr<BasicTopology> Switch::clone() const noexcept {
+    return std::make_unique<Switch>(npus_count, bandwidth, latency);
+}
