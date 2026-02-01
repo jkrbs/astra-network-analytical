@@ -42,3 +42,8 @@ TopologyBuildingBlock BasicTopology::get_basic_topology_type() const noexcept {
 
     return basic_topology_type;
 }
+
+  Latency BasicTopology::get_latency() const noexcept {
+    assert(latency >= 0);
+    return latency;
+  }

@@ -43,6 +43,13 @@ class BasicTopology : public Topology {
     [[nodiscard]] TopologyBuildingBlock get_basic_topology_type() const noexcept;
 
     /**
+     * Get the link latency of this basic topology.
+     *
+     * @return latency per link
+     */
+    [[nodiscard]] Latency get_latency() const noexcept;
+
+    /**
      * Create a deep copy of this topology instance.
      * Used to instantiate per-slice topologies in multi-dimensional routing.
      */

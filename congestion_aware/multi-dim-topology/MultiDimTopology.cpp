@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <algorithm>
 
 using namespace NetworkAnalytical;
 using namespace NetworkAnalyticalCongestionAware;
@@ -17,6 +18,7 @@ MultiDimTopology::MultiDimTopology() noexcept : Topology() {
     topology_per_dim.clear();
     npus_count_per_dim = {};
     topology_slices_per_dim.clear();
+    latency_per_dim.clear();
     slices_initialized = false;
 
     // initialize topology shape
@@ -31,27 +33,104 @@ MultiDimTopology::MultiDimTopology() noexcept : Topology() {
 }
 
 Route MultiDimTopology::route(const DeviceId src, const DeviceId dest) const noexcept {
-    // initialize per-slice topologies if needed
-    ensure_slices_initialized();
-
     // translate src and dest to multi-dim address
-    const auto src_address = translate_address(src);
+    auto current_address = translate_address(src);
     const auto dest_address = translate_address(dest);
 
-    // get dim to transfer
-    const auto dim_to_transfer = get_dim_to_transfer(src_address, dest_address);
+    // helper: convert multi-dim address to global id
+    const auto address_to_global = [this](const MultiDimAddress& address) -> DeviceId {
+        DeviceId global_id = 0;
+        for (int d = dims_count - 1; d >= 0; --d) {
+            global_id = global_id * npus_count_per_dim[d] + address[d];
+        }
+        return global_id;
+    };
 
-    // prepare localized topology and address info
-    const auto slice_index = get_slice_index(dim_to_transfer, src_address);
-    auto* const topology = topology_slices_per_dim[dim_to_transfer][slice_index].get();
-    const auto src_local_id = src_address[dim_to_transfer];
-    const auto dest_local_id = dest_address[dim_to_transfer];
+    Route route;
+    route.push_back(get_device_from_global_id(src));
 
-    // get route from the localized topology
-    const auto local_route = topology->route(src_local_id, dest_local_id);
+    // Dimension-ordered routing: traverse each dimension independently
+    for (int dim = 0; dim < dims_count; ++dim) {
+        if (current_address[dim] == dest_address[dim]) {
+            continue;
+        }
 
-    // return the route
-    return local_route;
+        auto* const topology = topology_per_dim[dim].get();
+        const auto src_local_id = current_address[dim];
+        const auto dest_local_id = dest_address[dim];
+        auto local_route = topology->route(src_local_id, dest_local_id);
+
+        std::vector<DeviceId> local_ids;
+        local_ids.reserve(local_route.size() + 2);
+        for (const auto& local_dev : local_route) {
+            DeviceId local_id = local_dev->get_id();
+            if (local_id >= npus_count_per_dim[dim]) {
+                // Treat as a global id and extract this dimension's coordinate
+                const auto addr = translate_address(local_id);
+                local_id = addr[dim];
+            }
+            local_ids.push_back(local_id);
+        }
+        if (local_ids.empty()) {
+            local_ids.push_back(src_local_id);
+        }
+        if (local_ids.back() != dest_local_id) {
+            local_ids.push_back(dest_local_id);
+        }
+
+        bool first = true;
+        for (const auto local_id : local_ids) {
+            assert(local_id >= 0 && local_id < npus_count_per_dim[dim]);
+            if (first && local_id == current_address[dim]) {
+                first = false;
+                continue;  // skip duplicate current node
+            }
+            first = false;
+
+            current_address[dim] = local_id;
+            const auto global_id = address_to_global(current_address);
+
+            if (route.empty() || route.back()->get_id() != global_id) {
+                // lazily connect consecutive nodes along this dimension
+                if (!route.empty()) {
+                    const auto prev_id = route.back()->get_id();
+                    if (!devices[prev_id]->connected(global_id)) {
+                        const_cast<MultiDimTopology*>(this)->connect(
+                            prev_id,
+                            global_id,
+                            bandwidth_per_dim[dim],
+                            latency_per_dim[dim],
+                            true);
+                    }
+                }
+                route.push_back(get_device_from_global_id(global_id));
+            }
+        }
+    }
+
+    assert(route.front()->get_id() == src);
+    assert(route.back()->get_id() == dest);
+
+    // Assert all devices in the route are non-null
+    for (const auto& dev : route) {
+        assert(dev != nullptr && "Null device in route");
+    }
+
+    // Assert each consecutive pair is connected
+    for (auto it = route.begin(); it != route.end();) {
+        auto curr = it++;
+        if (it == route.end()) break;
+        auto next = it;
+        assert((*curr)->connected((*next)->get_id()) && "Consecutive devices in route are not connected");
+    }
+
+    return route;
+}
+
+// Helper: get the Device pointer for a global DeviceId
+std::shared_ptr<Device> MultiDimTopology::get_device_from_global_id(DeviceId global_id) const {
+    assert(global_id >= 0 && global_id < devices_count);
+    return devices[global_id];
 }
 
 void MultiDimTopology::send(std::unique_ptr<Chunk> chunk) noexcept {
@@ -78,12 +157,19 @@ void MultiDimTopology::append_dimension(std::unique_ptr<BasicTopology> topology)
     const auto bandwidth = topology->get_bandwidth_per_dim()[0];
     bandwidth_per_dim.push_back(bandwidth);
 
+    const auto latency = topology->get_latency();
+    latency_per_dim.push_back(latency);
+
     // push back topology and npus_count
     topology_per_dim.push_back(std::move(topology));
     npus_count_per_dim.push_back(topology_size);
 
     // reset per-slice initialization (dimensions changed)
     slices_initialized = false;
+
+    // rebuild global devices for the updated NPU count
+    devices.clear();
+    instantiate_devices();
 
     // eagerly build per-slice topologies for all dimensions
     build_slices_and_validate();
@@ -186,28 +272,82 @@ MultiDimTopology::MultiDimAddress MultiDimTopology::translate_address(const Devi
 
 int MultiDimTopology::get_dim_to_transfer(const MultiDimAddress& src_address,
                                           const MultiDimAddress& dest_address) const noexcept {
-    auto dim_to_transfer = -1;
-    auto diffs = 0;
-
     for (auto dim = 0; dim < dims_count; dim++) {
         // check the dim that has different address
         if (src_address[dim] != dest_address[dim]) {
-            dim_to_transfer = dim;
-            diffs++;
+            return dim;
         }
     }
 
-    if (diffs == 1) {
-        return dim_to_transfer;
-    }
-
-    if (diffs == 0) {
-        std::cerr << "[Error] (network/analytical/congestion_aware): src and dest have the same address"
-                  << std::endl;
-    } else {
-        std::cerr << "[Error] (network/analytical/congestion_aware): src and dest differ in " << diffs
-                  << " dimensions. MultiDimTopology only supports single-dimension transfers." << std::endl;
-    }
-
+    // shouldn't reach here
+    std::cerr << "[Error] (network/analytical/congestion_unaware): " << "src and dest have the same address"
+              << std::endl;
     std::exit(-1);
 }
+
+
+// MultiDimTopology::MultiDimAddress MultiDimTopology::translate_address(const DeviceId npu_id) const noexcept {
+//     // If units-count if [2, 8, 4], and the given id is 47, then the id should be
+//     // 47 // 16 = 2, leftover = 47 % 16 = 15
+//     // 15 // 2 = 7, leftover = 15 % 2 = 1
+//     // 1 // 1 = 1, leftover = 0
+//     // therefore the address is [1, 7, 2]
+
+//     // create empty address
+//     auto multi_dim_address = MultiDimAddress();
+//     for (auto i = 0; i < dims_count; i++) {
+//         multi_dim_address.push_back(-1);
+//     }
+
+//     auto leftover = npu_id;
+//     auto denominator = npus_count;
+
+//     for (auto dim = dims_count - 1; dim >= 0; dim--) {
+//         // change denominator
+//         denominator /= npus_count_per_dim[dim];
+
+//         // get and update address
+//         const auto quotient = leftover / denominator;
+//         leftover %= denominator;
+
+//         // update address
+//         multi_dim_address[dim] = quotient;
+//     }
+
+//     // check address translation
+//     for (auto i = 0; i < dims_count; i++) {
+//         assert(0 <= multi_dim_address[i]);
+//         assert(multi_dim_address[i] < npus_count_per_dim[i]);
+//     }
+
+//     // return retrieved address
+//     return multi_dim_address;
+// }
+
+// int MultiDimTopology::get_dim_to_transfer(const MultiDimAddress& src_address,
+//                                           const MultiDimAddress& dest_address) const noexcept {
+//     auto dim_to_transfer = -1;
+//     auto diffs = 0;
+
+//     for (auto dim = 0; dim < dims_count; dim++) {
+//         // check the dim that has different address
+//         if (src_address[dim] != dest_address[dim]) {
+//             dim_to_transfer = dim;
+//             diffs++;
+//         }
+//     }
+
+//     if (diffs == 1) {
+//         return dim_to_transfer;
+//     }
+
+//     if (diffs == 0) {
+//         std::cerr << "[Error] (network/analytical/congestion_aware): src and dest have the same address"
+//                   << std::endl;
+//     } else {
+//         std::cerr << "[Error] (network/analytical/congestion_aware): src and dest differ in " << diffs
+//                   << " dimensions. MultiDimTopology only supports single-dimension transfers." << std::endl;
+//     }
+
+//     std::exit(-1);
+// }

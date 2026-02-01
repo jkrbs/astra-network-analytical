@@ -51,6 +51,14 @@ class Device {
      */
     void connect(DeviceId id, Bandwidth bandwidth, Latency latency) noexcept;
 
+    /**
+     * Check if this device is connected to another device.
+     *
+     * @param dest id of the destination device
+     * @return true if connected, false otherwise
+     */
+    [[nodiscard]] bool connected(DeviceId dest) const noexcept;
+
   private:
     /// device Id
     DeviceId device_id;
@@ -58,14 +66,6 @@ class Device {
     /// links to other nodes
     /// map[dest node node_id] -> link
     std::map<DeviceId, std::shared_ptr<Link>> links;
-
-    /**
-     * Check if this device is connected to another device.
-     *
-     * @param dest id of the device to check te connectivity
-     * @return true if connected to the given device, false otherwise
-     */
-    [[nodiscard]] bool connected(DeviceId dest) const noexcept;
 };
 
 }  // namespace NetworkAnalyticalCongestionAware

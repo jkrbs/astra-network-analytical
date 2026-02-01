@@ -1,7 +1,7 @@
 # Network Configuration
 
 # 3D basic-topology + ExpanderGraph for MoE
-topology: [ FullyConnected, FullyConnected, FullyConnected, Ring ] 
+topology: [ FullyConnected, FullyConnected, FullyConnected, FullyConnected ] 
 
 # 2 x 8 x 4 x 2 = 128 NPUs
 npus_count: [ 2, 8, 4,  8]  # number of NPUs

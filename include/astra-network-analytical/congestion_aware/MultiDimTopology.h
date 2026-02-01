@@ -20,6 +20,9 @@ namespace NetworkAnalyticalCongestionAware {
  * which can be constructed by stacking up multiple BasicTopology instances.
  */
 class MultiDimTopology : public Topology {
+    private:
+      // Helper: get the Device pointer for a global DeviceId
+      std::shared_ptr<Device> get_device_from_global_id(DeviceId global_id) const;
   public:
     /**
      * Constructor.
@@ -84,6 +87,9 @@ class MultiDimTopology : public Topology {
   private:
     /// BasicTopology instances per dimension.
     std::vector<std::unique_ptr<BasicTopology>> topology_per_dim;
+
+    /// latency per each network dimension
+    std::vector<Latency> latency_per_dim;
 
     /// Per-slice topologies for each dimension.
     mutable std::vector<std::vector<std::unique_ptr<BasicTopology>>> topology_slices_per_dim;

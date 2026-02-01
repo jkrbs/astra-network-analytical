@@ -493,7 +493,7 @@ TEST_F(TestNetworkAnalyticalCongestionAware, MultiDimTopology_BuildAndValidate) 
     // assert topology type
     auto multi_dim_topology = std::dynamic_pointer_cast<MultiDimTopology>(topology);
     ASSERT_NE(multi_dim_topology, nullptr);
-
+    std::cout << "MultiDimTopology created with " << multi_dim_topology->get_devices_count() << " devices." << std::endl;
     // ensure reachability between all NPUs that share a single dimension
     const auto npus_count = multi_dim_topology->get_npus_count();
     for (DeviceId i = 0; i < npus_count; ++i) {
@@ -504,29 +504,23 @@ TEST_F(TestNetworkAnalyticalCongestionAware, MultiDimTopology_BuildAndValidate) 
 
             const auto src_addr = multi_dim_topology->translate_address(i);
             const auto dest_addr = multi_dim_topology->translate_address(j);
-
-            auto diff_count = 0;
-            for (size_t dim = 0; dim < src_addr.size(); ++dim) {
-                if (src_addr[dim] != dest_addr[dim]) {
-                    diff_count++;
-                }
-            }
-
-            // Only call route if src/dest differ in exactly one dimension (same slice)
-            if (diff_count != 1) {
-                // const auto route = multi_dim_topology->route(i, j);
-                // EXPECT_GT(route.size(), 20) << "Route found between " << i << " and " << j;
-                continue;
-            }
+            ASSERT_NE(src_addr.size(), 0);
+            ASSERT_NE(dest_addr.size(), 0);
 
             const auto route = multi_dim_topology->route(i, j);
             EXPECT_LT(route.size(), 20) << "No route found between " << i << " and " << j;
-
+            std::cout << "Route from " << i << " to " << j << " has " << route.size() << " hops." << std::endl;
+            //print route 
+            std::cout << "Route: ";
+            for (const auto& device : route) {
+                std::cout << device->get_id() << " ";
+            }
+            std::cout << std::endl;
             // actually send packet via topology
             auto chunk = std::make_unique<Chunk>(1, route, callback, nullptr);
             topology->send(std::move(chunk));
             auto send_time = event_queue->get_current_time();
-            /// Run simulation
+            // Run simulation
             while (!event_queue->finished()) {
                 event_queue->proceed();
             }
