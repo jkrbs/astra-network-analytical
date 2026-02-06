@@ -36,6 +36,14 @@ class Link {
     static void set_event_queue(std::shared_ptr<EventQueue> event_queue_ptr) noexcept;
 
     /**
+     * Enable/disable random queue ordering for pending chunks.
+     * When enabled, chunks are picked randomly from the queue instead of FIFO.
+     *
+     * @param enabled true to enable random ordering, false for FIFO
+     */
+    static void set_random_queue(bool enabled) noexcept;
+
+    /**
      * Constructor.
      *
      * @param bandwidth bandwidth of the link
@@ -78,6 +86,9 @@ class Link {
   private:
     /// event queue Link uses to schedule events
     static std::shared_ptr<EventQueue> event_queue;
+
+    /// flag to enable random queue ordering (default: false = FIFO)
+    static bool random_queue_enabled;
 
     /// bandwidth of the link in GB/s
     Bandwidth bandwidth;

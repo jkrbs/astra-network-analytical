@@ -11,7 +11,7 @@ using namespace NetworkAnalytical;
 Bandwidth NetworkAnalytical::bw_GBps_to_Bpns(const Bandwidth bw_GBps) noexcept {
     assert(bw_GBps > 0);
 
-    // 1 GB is 2^30 B
-    // 1 s is 10^9 ns
-    return bw_GBps * (1 << 30) / (1'000'000'000);  // GB/s to B/ns
+    // 1 GB/s = 1e9 B/s = 1 B/ns (using decimal GB, not binary GiB)
+    // Previously used (1 << 30) which is GiB, causing 7.37% bandwidth inflation
+    return bw_GBps;
 }

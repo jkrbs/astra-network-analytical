@@ -8,12 +8,15 @@ LICENSE file in the root directory of this source tree.
 #include "congestion_aware/Chunk.h"
 #include "congestion_aware/Device.h"
 #include <cassert>
+#include <cstdlib>
+#include <iostream>
 
 using namespace NetworkAnalytical;
 using namespace NetworkAnalyticalCongestionAware;
 
 // declaring static event_queue
 std::shared_ptr<EventQueue> Link::event_queue;
+bool Link::random_queue_enabled = false;
 
 void Link::link_become_free(void* const link_ptr) noexcept {
     assert(link_ptr != nullptr);
@@ -35,6 +38,13 @@ void Link::set_event_queue(std::shared_ptr<EventQueue> event_queue_ptr) noexcept
 
     // set the event queue
     Link::event_queue = std::move(event_queue_ptr);
+}
+
+void Link::set_random_queue(bool enabled) noexcept {
+    random_queue_enabled = enabled;
+    if (enabled) {
+        std::cout << "[CONFIG] Link random queue: ENABLED (shuffled packet ordering)" << std::endl;
+    }
 }
 
 Link::Link(const Bandwidth bandwidth, const Latency latency) noexcept
@@ -65,9 +75,19 @@ void Link::process_pending_transmission() noexcept {
     // pending chunk should exist
     assert(pending_chunk_exists());
 
-    // get chunk to process
-    auto chunk = std::move(pending_chunks.front());
-    pending_chunks.pop_front();
+    std::unique_ptr<Chunk> chunk;
+    if (random_queue_enabled && pending_chunks.size() > 1) {
+        // Pick random chunk from queue (shuffled ordering)
+        int idx = rand() % pending_chunks.size();
+        auto it = pending_chunks.begin();
+        std::advance(it, idx);
+        chunk = std::move(*it);
+        pending_chunks.erase(it);
+    } else {
+        // FIFO ordering (original behavior)
+        chunk = std::move(pending_chunks.front());
+        pending_chunks.pop_front();
+    }
 
     // service this chunk
     schedule_chunk_transmission(std::move(chunk));
