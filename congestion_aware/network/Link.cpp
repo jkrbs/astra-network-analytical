@@ -10,6 +10,9 @@ LICENSE file in the root directory of this source tree.
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <map>
+#include <vector>
+#include <algorithm>
 
 using namespace NetworkAnalytical;
 using namespace NetworkAnalyticalCongestionAware;
@@ -17,6 +20,11 @@ using namespace NetworkAnalyticalCongestionAware;
 // declaring static event_queue
 std::shared_ptr<EventQueue> Link::event_queue;
 bool Link::random_queue_enabled = false;
+
+// debug congestion tracking
+static int congestion_log_count = 0;
+static int total_queued = 0;
+static std::map<std::pair<int,int>, int> link_queue_counts;  // (src,dst) -> times queued
 
 void Link::link_become_free(void* const link_ptr) noexcept {
     assert(link_ptr != nullptr);
@@ -30,6 +38,21 @@ void Link::link_become_free(void* const link_ptr) noexcept {
     // process pending chunks if one exist
     if (link->pending_chunk_exists()) {
         link->process_pending_transmission();
+    }
+
+    // Periodic congestion summary
+    static int free_count = 0;
+    free_count++;
+    if (free_count % 500000 == 0 && total_queued > 0) {
+        std::cout << "[LINK_CONGESTION_SUMMARY] total_queued=" << total_queued << std::endl;
+        // Sort by count descending
+        std::vector<std::pair<std::pair<int,int>, int>> sorted_links(link_queue_counts.begin(), link_queue_counts.end());
+        std::sort(sorted_links.begin(), sorted_links.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+        int shown = 0;
+        for (const auto& [link_pair, count] : sorted_links) {
+            std::cout << "  link " << link_pair.first << "->" << link_pair.second << ": queued " << count << " times" << std::endl;
+            if (++shown >= 20) break;
+        }
     }
 }
 
@@ -64,6 +87,19 @@ void Link::send(std::unique_ptr<Chunk> chunk) noexcept {
 
     if (busy) {
         // link is busy, add to pending chunks
+        total_queued++;
+        int src_id = chunk->current_device()->get_id();
+        int dst_id = chunk->next_device()->get_id();
+        link_queue_counts[{src_id, dst_id}]++;
+        if (congestion_log_count < 50) {
+            auto current_time = Link::event_queue->get_current_time();
+            std::cout << "[LINK_QUEUE] t=" << current_time 
+                      << " link " << src_id << "->" << dst_id
+                      << " BUSY, chunk_size=" << chunk->get_size()
+                      << " pending=" << pending_chunks.size()
+                      << std::endl;
+            congestion_log_count++;
+        }
         pending_chunks.push_back(std::move(chunk));
     } else {
         // service this chunk immediately

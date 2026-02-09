@@ -11,8 +11,9 @@ namespace NetworkAnalytical {
 
 /**
  * Convert bandwidth from GB/s to B/ns.
- * Here, 1 GB = 2^30 B
+ * Here, 1 GB = 10^9 B (decimal, not binary GiB)
  * 1 s = 10^9 ns
+ * Therefore: 1 GB/s = 1 B/ns
  *
  * @param bw_GBps bandwidth in GB/s
  * @return translated bandwidth in B/ns
